@@ -112,7 +112,7 @@ go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 scripts/start-services
 ```
 
-Kiểm tra service và đóng service tương tự như vậy.
+Kiểm tra service và đóng service tương tự như vậy, trong thư mục scripts
 
 Vào trong `python main.py`:
 * Không chọn knowledge base
