@@ -89,7 +89,7 @@ uv pip install -r requirements.txt
 
 Sau khi đã tải đủ các gói như
 ```
-sudo apt update && sudo apt install -y amass arjun assetfinder ffuf httpx hydra masscan metasploit-framework nmap nuclei sqlmap 
+sudo apt update && sudo apt install -y ffuf httpx hydra masscan metasploit-framework nmap nuclei sqlmap 
 sudo apt install -y postgresql postgresql-contrib golang-go
 ```
 
