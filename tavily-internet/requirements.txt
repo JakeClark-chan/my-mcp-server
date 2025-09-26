@@ -1,0 +1,20 @@
+# Tavily Internet MCP Server Requirements
+
+# Core MCP dependencies
+mcp[cli]>=1.0.0
+
+# Tavily official Python client
+tavily-python>=0.3.0
+
+# Data validation and parsing
+pydantic>=2.0.0
+
+# Standard library modules used (no additional installation needed):
+# - asyncio (Asynchronous I/O)
+# - json (JSON parsing)
+# - re (Regular expressions)
+# - urllib.parse (URL parsing)
+# - contextlib (Context management utilities)
+# - dataclasses (Data classes)
+# - datetime (Date and time handling)
+# - typing (Type hints)

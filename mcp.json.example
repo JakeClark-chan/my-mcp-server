@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "mcpServers": {
+    "ftp-server": {
+      "command": "/root/mcp-server/.venv/bin/python",
+      "args": ["/root/mcp-server/ftp/ftp_server.py"],
+      "description": "FTP Server MCP - Complete FTP operations including connection, file transfer, and directory management",
+      "env": {
+        "PYTHONPATH": "/root/mcp-server"
+      }
+    },
+    "tavily-internet": {
+      "command": "/root/mcp-server/.venv/bin/python", 
+      "args": ["/root/mcp-server/tavily-internet/tavily_server.py"],
+      "description": "Tavily Internet Search MCP - AI-powered web search with content extraction and Q&A capabilities",
+      "env": {
+        "PYTHONPATH": "/root/mcp-server",
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}",
+        "_comment": "Ensure to set the TAVILY_API_KEY environment variable with your actual API key"
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# FTP MCP Server Requirements
+
+# Core MCP dependencies
+mcp[cli]>=1.0.0
+
+# Standard library modules used (no additional installation needed):
+# - ftplib (FTP client library)
+# - io (Input/output operations)
+# - os (Operating system interface)
+# - base64 (Base64 encoding/decoding)
+# - datetime (Date and time handling)
+# - contextlib (Context management utilities)
+# - dataclasses (Data classes)
+# - typing (Type hints)
+# - asyncio (Asynchronous I/O)
+# - tempfile (Temporary files and directories)
+# - stat (File statistics)
+
+# Third-party dependencies
+pydantic>=2.0.0  # Data validation and parsing
+tavily-python>=0.3.0  # Tavily official Python client
