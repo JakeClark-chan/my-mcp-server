@@ -293,3 +293,55 @@ python ftp_server.py --debug
 ## License
 
 This project is part of the MCP ecosystem and follows the same licensing terms.
+
+
+## Bonus
+### Small patch inside Mantis
+
+at `Mantis/Decoys/FTP/fake_ftp_tarpit.py`:
+
+```py
+def handle_cwd(self, client_socket, current_path, data, client_data_connection_info, injection_manager):
+    """Handle the CWD command to change directories."""
+    # Old
+    client_ip, client_port = client_data_connection_info
+    #
+    new_dir = data.split(' ')[1] if len(data.split(' ')) > 1 else '/'
+    if new_dir == '/':
+        new_path = '/'
+    else:
+        new_path = current_path.rstrip('/') + '/' + new_dir
+
+    msg = b"250 Directory successfully changed\r\n"
+    msg, _ = injection_manager((client_ip, client_port), self.source_name, self.name+'.continue', msg)
+    msg += b'\r\n'
+    client_socket.sendall(msg)
+    
+    return new_path
+```
+
+replace with
+
+```py
+def handle_cwd(self, client_socket, current_path, data, client_data_connection_info, injection_manager):
+    """Handle the CWD command to change directories."""
+    # New
+    # Check if client_data_connection_info is available
+    if client_data_connection_info is not None:
+        client_ip, client_port = client_data_connection_info
+    else:
+        client_ip, client_port = None, None
+    #
+    new_dir = data.split(' ')[1] if len(data.split(' ')) > 1 else '/'
+    if new_dir == '/':
+        new_path = '/'
+    else:
+        new_path = current_path.rstrip('/') + '/' + new_dir
+
+    msg = b"250 Directory successfully changed\r\n"
+    msg, _ = injection_manager((client_ip, client_port), self.source_name, self.name+'.continue', msg)
+    msg += b'\r\n'
+    client_socket.sendall(msg)
+    
+    return new_path
+```
