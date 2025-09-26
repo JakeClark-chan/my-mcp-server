@@ -1,0 +1,185 @@
+#!/bin/bash
+
+# PentestAgent Service Startup Script
+# This script starts PostgreSQL and Metasploit RPC server
+
+set -e
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+echo "🚀 Starting security services for PentestAgent..."
+
+# Function to install Go-based tools (on-demand)
+install_go_tool() {
+    local tool_url=$1
+    local tool_name=$2
+    echo "🔨 Installing $tool_name..."
+    cd "$PROJECT_DIR"
+    go install -v "$tool_url@latest" 2>/dev/null || echo "⚠️  $tool_name installation failed or already exists"
+}
+
+# Install missing tools if needed
+install_missing_tools() {
+    if ! command -v httpx >/dev/null 2>&1; then
+        echo "📥 Installing missing security tools..."
+        install_go_tool "github.com/projectdiscovery/httpx/cmd/httpx" "HTTPX"
+        install_go_tool "github.com/projectdiscovery/katana/cmd/katana" "Katana"
+    fi
+}
+
+# Setup PostgreSQL
+setup_postgresql() {
+    echo "📊 Setting up PostgreSQL..."
+    
+    # Define PostgreSQL paths
+    local PG_BIN="/usr/lib/postgresql/17/bin"
+    local POSTGRES="$PG_BIN/postgres"
+    local INITDB="$PG_BIN/initdb"
+    
+    # Use /tmp for PostgreSQL data directory (accessible to postgres user)
+    local PG_DATA="/tmp/pentest-postgresql-$$"
+    
+    # Check if PostgreSQL is installed
+    if [ ! -f "$POSTGRES" ] || [ ! -f "$INITDB" ]; then
+        echo "❌ PostgreSQL not found. Please install: apt install postgresql"
+        return 1
+    fi
+    
+    # Kill any existing PostgreSQL processes for this project
+    pkill -f "postgres.*pentest-postgresql" 2>/dev/null || true
+    sleep 1
+    
+    # Initialize PostgreSQL if needed
+    if [ ! -d "$PG_DATA" ]; then
+        echo "📊 Initializing PostgreSQL database..."
+        mkdir -p "$PG_DATA"
+        chown postgres:postgres "$PG_DATA"
+        
+        sudo -u postgres "$INITDB" -D "$PG_DATA" --auth-local=trust --auth-host=trust || {
+            echo "⚠️  PostgreSQL initialization failed"
+            echo "💡 Tip: Try using system PostgreSQL service instead"
+            return 1
+        }
+        
+        # Create a symlink in project directory for easy access
+        ln -sf "$PG_DATA" "$PROJECT_DIR/.postgresql-data"
+        echo "🔗 PostgreSQL data directory: $PG_DATA"
+    fi
+    
+    # Start PostgreSQL if not running
+    if ! pgrep -f "postgres.*pentest-postgresql" > /dev/null; then
+        echo "🗄️  Starting PostgreSQL..."
+        
+        # Create log directory
+        mkdir -p "$PROJECT_DIR/.logs"
+        
+        # Start PostgreSQL as postgres user
+        sudo -u postgres nohup "$POSTGRES" -D "$PG_DATA" -p 5433 -k /tmp \
+            </dev/null >"$PROJECT_DIR/.logs/postgresql.log" 2>&1 &
+        sleep 3
+        
+        if pgrep -f "postgres.*pentest-postgresql" > /dev/null; then
+            echo "✅ PostgreSQL started successfully"
+            echo "   Port: 5433"
+            echo "   Socket: /tmp/.s.PGSQL.5433"
+        else
+            echo "❌ PostgreSQL failed to start"
+            echo "Check log: $PROJECT_DIR/.logs/postgresql.log"
+            cat "$PROJECT_DIR/.logs/postgresql.log" 2>/dev/null || true
+            return 1
+        fi
+    else
+        echo "✅ PostgreSQL already running"
+    fi
+}
+
+# Setup Metasploit RPC
+setup_metasploit_rpc() {
+    echo "🎯 Setting up Metasploit RPC server..."
+    
+    # Kill any existing processes on port 55553 first
+    lsof -ti:55553 | xargs -r kill -9 2>/dev/null || true
+    pkill -9 -f "msfrpcd.*55553" 2>/dev/null || true
+    sleep 1
+    
+    # Start Metasploit RPC server if not running
+    if ! lsof -ti:55553 > /dev/null 2>&1; then
+        echo "🚀 Starting Metasploit RPC server on port 55553..."
+        
+        # Create log directory
+        mkdir -p "$PROJECT_DIR/.logs"
+        
+        # Start with proper daemonization
+        RUBYOPT="-W0" nohup msfrpcd -P 1 -S -p 55553 -a 127.0.0.1 \
+            </dev/null >"$PROJECT_DIR/.logs/msfrpcd.log" 2>&1 &
+        sleep 3
+        
+        # Check if it started successfully (wait a bit more for startup)
+        sleep 2
+        if lsof -ti:55553 > /dev/null 2>&1; then
+            echo "✅ Metasploit RPC server started successfully"
+            echo "   Username: msf"
+            echo "   Password: 1"
+            echo "   Port: 55553"
+            echo "   Address: 127.0.0.1"
+        else
+            echo "❌ Metasploit RPC server failed to start"
+            echo "Check logs: $PROJECT_DIR/.logs/msfrpcd.log"
+            echo "Log content:"
+            tail -10 "$PROJECT_DIR/.logs/msfrpcd.log" 2>/dev/null || echo "No log content available"
+            return 1
+        fi
+    else
+        echo "✅ Metasploit RPC server already running"
+    fi
+}
+
+# Check system dependencies
+check_dependencies() {
+    local missing_deps=()
+    
+    # Check Go
+    if ! command -v go &> /dev/null; then
+        missing_deps+=("golang-go")
+    fi
+    
+    # Check PostgreSQL
+    if [ ! -f "/usr/lib/postgresql/17/bin/postgres" ]; then
+        missing_deps+=("postgresql")
+    fi
+    
+    # Check Metasploit
+    if ! command -v msfconsole &> /dev/null; then
+        missing_deps+=("metasploit-framework")
+    fi
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        echo "❌ Missing dependencies: ${missing_deps[*]}"
+        echo "Please install with: apt install ${missing_deps[*]}"
+        return 1
+    fi
+    
+    echo "✅ All dependencies found"
+    return 0
+}
+
+# Main execution
+main() {
+    # Check dependencies first
+    if ! check_dependencies; then
+        exit 1
+    fi
+    
+    # Install missing tools
+    install_missing_tools
+    
+    # Setup services
+    setup_postgresql
+    setup_metasploit_rpc
+    
+    echo ""
+    echo "🎉 All services started successfully!"
+    echo "Use 'status-services' to check service status"
+    echo "Use 'stop-services' to stop all services"
+}
+
+main "$@"

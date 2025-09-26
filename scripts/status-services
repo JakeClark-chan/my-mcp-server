@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# PentestAgent Service Status Script
+# This script checks the status of PostgreSQL and Metasploit RPC server
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "🔍 Checking service status..."
+echo "================================"
+
+# Check PostgreSQL
+echo "📊 PostgreSQL Status:"
+if pgrep -f "postgres.*pentest-postgresql" > /dev/null; then
+    PG_PID=$(pgrep -f "postgres.*pentest-postgresql")
+    echo "  ✅ Running (PID: $PG_PID)"
+    if [ -L "$PROJECT_DIR/.postgresql-data" ]; then
+        echo "  📂 Data directory: $(readlink $PROJECT_DIR/.postgresql-data)"
+    fi
+    echo "  🔌 Port: 5433"
+    echo "  🔌 Socket: /tmp/.s.PGSQL.5433"
+else
+    echo "  ❌ Not running"
+fi
+
+echo ""
+
+# Check Metasploit RPC
+echo "🎯 Metasploit RPC Status:"
+if lsof -ti:55553 > /dev/null 2>&1; then
+    PORT_PID=$(lsof -ti:55553)
+    # Check if it's actually msfrpcd
+    if pgrep -f "ruby.*msfrpcd" > /dev/null || ps -p "$PORT_PID" -o comm= 2>/dev/null | grep -q ruby; then
+        echo "  ✅ Running (PID: $PORT_PID)"
+        echo "  🔌 Port: 55553"
+        echo "  👤 Username: msf"
+        echo "  🔑 Password: 1"
+        echo "  🌐 Address: 127.0.0.1"
+    else
+        echo "  ⚠️  Port 55553 in use by non-Metasploit process (PID: $PORT_PID)"
+    fi
+else
+    echo "  ❌ Not running"
+fi
+
+echo ""
+
+# Check if logs exist
+echo "📋 Log Files:"
+if [ -f "$PROJECT_DIR/.logs/msfrpcd.log" ]; then
+    echo "  📄 Metasploit RPC log: $PROJECT_DIR/.logs/msfrpcd.log"
+    echo "  📏 Size: $(du -h "$PROJECT_DIR/.logs/msfrpcd.log" | cut -f1)"
+else
+    echo "  ❌ No Metasploit RPC log found"
+fi
+
+if [ -f "$PROJECT_DIR/.logs/postgresql.log" ]; then
+    echo "  📄 PostgreSQL log: $PROJECT_DIR/.logs/postgresql.log"
+    echo "  📏 Size: $(du -h "$PROJECT_DIR/.logs/postgresql.log" | cut -f1)"
+else
+    echo "  ❌ No PostgreSQL log found"
+fi
+
+echo ""
+echo "💡 Commands available:"
+echo "  start-services  - Start all services"
+echo "  stop-services   - Stop all services"
+echo "  status-services - Show this status (current command)"

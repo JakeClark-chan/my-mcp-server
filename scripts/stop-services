@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# PentestAgent Service Stop Script
+# This script stops PostgreSQL and Metasploit RPC server
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "🛑 Stopping security services for PentestAgent..."
+
+# Stop Metasploit RPC
+echo "🎯 Stopping Metasploit RPC server..."
+if pgrep -f "msfrpcd.*55553" > /dev/null || lsof -ti:55553 > /dev/null 2>&1; then
+    # Kill by process name first
+    pkill -TERM -f "msfrpcd.*55553" 2>/dev/null || true
+    sleep 2
+    
+    # Force kill if still running
+    pkill -KILL -f "msfrpcd.*55553" 2>/dev/null || true
+    
+    # Kill by port if still occupied
+    lsof -ti:55553 | xargs -r kill -9 2>/dev/null || true
+    
+    # Verify it's stopped
+    if ! pgrep -f "msfrpcd.*55553" > /dev/null && ! lsof -ti:55553 > /dev/null 2>&1; then
+        echo "✅ Metasploit RPC server stopped"
+    else
+        echo "⚠️  Metasploit RPC server may still be running"
+    fi
+else
+    echo "✅ Metasploit RPC server was not running"
+fi
+
+# Stop PostgreSQL
+echo "📊 Stopping PostgreSQL..."
+if pgrep -f "postgres.*pentest-postgresql" > /dev/null; then
+    # Graceful shutdown first
+    pkill -TERM -f "postgres.*pentest-postgresql" 2>/dev/null || true
+    sleep 2
+    
+    # Force kill if still running
+    pkill -KILL -f "postgres.*pentest-postgresql" 2>/dev/null || true
+    
+    # Clean up temporary data directory
+    rm -rf /tmp/pentest-postgresql-* 2>/dev/null || true
+    rm -f "$PROJECT_DIR/.postgresql-data" 2>/dev/null || true
+    
+    # Verify it's stopped
+    if ! pgrep -f "postgres.*pentest-postgresql" > /dev/null; then
+        echo "✅ PostgreSQL stopped"
+    else
+        echo "⚠️  PostgreSQL may still be running"
+    fi
+else
+    echo "✅ PostgreSQL was not running"
+fi
+
+echo ""
+echo "🧹 Cleanup complete!"
+echo "Use 'start-services' to start services again"
